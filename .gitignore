@@ -1,0 +1,32 @@
+# Large generated data files (regenerate with: python generate_data.py)
+data/*.csv
+data/bronze/*.csv
+data/silver/*.parquet
+data/gold/*.parquet
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+
+# Output/debug files
+output.txt
+*.log
+
+# Airflow local runtime files
+airflow/logs/
+airflow/airflow.db
