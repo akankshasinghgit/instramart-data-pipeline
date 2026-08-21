@@ -2,7 +2,7 @@
 
 A local, end-to-end data engineering project simulating a quick-commerce (Instamart-style) analytics pipeline — from raw synthetic data to business-ready dashboards.
 
-> **Status:** 🚧 In Progress — Week 4 of 8 (Gold Layer)
+> **Status:** 🚧 In Progress — Week 5 of 8 (Query Layer)
 
 ---
 
@@ -136,7 +136,7 @@ instramart-data-pipeline/
 - [x] **Week 2 — Bronze Layer:** Raw CSVs organized into `data/bronze/` (customers, products, orders, order_items, inventory); `data/silver/` and `data/gold/` folders created and ready
 - [x] **Week 3 — Silver Layer:** PySpark cleaning job built and run — nulls handled, duplicates removed, invalid values fixed, all 5 tables written as Parquet to `data/silver/` (see [Local Environment Setup](#-local-environment-setup-windows) for the PySpark/Hadoop-on-Windows configuration this required)
 - [x] **Week 4 — Gold Layer:** PySpark business transformations built and run — 6 aggregated tables written to `data/gold/`: `daily_orders`, `product_performance`, `category_performance`, `inventory_health`, `delivery_performance`, `location_insights`
-- [ ] **Week 5 — Query Layer:** DuckDB SQL queries answering all business questions
+- [x] **Week 5 — Query Layer:** DuckDB script built and run against the full 10.3M-row dataset — answers every business question from Step 2 directly via SQL on the Gold-layer Parquet files (orders, products, inventory, delivery, location)
 - [ ] **Week 6 — Dashboard:** Power BI Desktop dashboard connected to Gold layer
 - [ ] **Week 7 — Orchestration:** Airflow DAG automating Bronze → Silver → Gold
 - [ ] **Week 8 — Testing & Polish:** Data quality tests, final documentation, `v1.0` release
