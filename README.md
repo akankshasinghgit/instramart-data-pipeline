@@ -2,7 +2,7 @@
 
 A local, end-to-end data engineering project simulating a quick-commerce (Instamart-style) analytics pipeline — from raw synthetic data to business-ready dashboards.
 
-> **Status:** 🚧 In Progress — Week 2 of 8 (Bronze Layer)
+> **Status:** 🚧 In Progress — Week 3 of 8 (Silver Layer)
 
 ---
 
@@ -134,7 +134,7 @@ instramart-data-pipeline/
 
 - [x] **Week 1 — Data Foundation:** Business problem defined, 5-table data model designed, synthetic data generator built (10.3M rows), data validated (zero referential integrity issues)
 - [x] **Week 2 — Bronze Layer:** Raw CSVs organized into `data/bronze/` (customers, products, orders, order_items, inventory); `data/silver/` and `data/gold/` folders created and ready
-- [ ] **Week 3 — Silver Layer:** PySpark cleaning job (nulls, duplicates, invalid values) → Parquet
+- [x] **Week 3 — Silver Layer:** PySpark cleaning job built and run — nulls handled, duplicates removed, invalid values fixed, all 5 tables written as Parquet to `data/silver/` (see [Local Environment Setup](#-local-environment-setup-windows) for the PySpark/Hadoop-on-Windows configuration this required)
 - [ ] **Week 4 — Gold Layer:** PySpark business transformations → aggregated Parquet tables
 - [ ] **Week 5 — Query Layer:** DuckDB SQL queries answering all business questions
 - [ ] **Week 6 — Dashboard:** Power BI Desktop dashboard connected to Gold layer
@@ -174,6 +174,23 @@ python check_data.py
 ```
 
 > **Note:** PySpark requires Java 17 (JDK) installed and `JAVA_HOME` set. See [Adoptium](https://adoptium.net) for the JDK installer.
+
+---
+
+## 🪟 Local Environment Setup (Windows)
+
+Running PySpark locally on Windows required additional configuration beyond a plain `pip install`, since PySpark depends on Hadoop libraries that were originally built for Linux. The full diagnosis and fix for each issue is documented in [`TROUBLESHOOTING_JOURNAL.md`](./TROUBLESHOOTING_JOURNAL.md) — summary below:
+
+| Issue | Fix |
+|---|---|
+| Wrong JDK version installed | Use JDK 17 specifically (LTS), not the latest release |
+| `java` command not recognized | Set `JAVA_HOME` and add `%JAVA_HOME%\bin` to `Path` |
+| PySpark startup hangs | Force `spark.driver.host=localhost` in SparkSession config |
+| `winutils.exe` missing (read errors) | Download from [cdarlint/winutils](https://github.com/cdarlint/winutils), set `HADOOP_HOME` |
+| Fatal error writing Parquet files | Also requires `hadoop.dll`, placed in both `HADOOP_HOME\bin` and `C:\Windows\System32` |
+| Windows blocks downloaded `.exe`/`.dll` | Right-click → Properties → check "Unblock" |
+
+See the full journal for root-cause explanations of each — this is genuinely useful context for anyone else setting up PySpark on Windows, not just a record of what went wrong.
 
 ---
 
