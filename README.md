@@ -189,6 +189,7 @@ Running PySpark locally on Windows required additional configuration beyond a pl
 | `winutils.exe` missing (read errors) | Download from [cdarlint/winutils](https://github.com/cdarlint/winutils), set `HADOOP_HOME` |
 | Fatal error writing Parquet files | Also requires `hadoop.dll`, placed in both `HADOOP_HOME\bin` and `C:\Windows\System32` |
 | Windows blocks downloaded `.exe`/`.dll` | Right-click → Properties → check "Unblock" |
+| Power BI can't open Gold-layer Parquet ("path is a folder path" error) | Spark writes Parquet as a folder of part-files, not a single file — Gold-layer tables are small enough to write via pandas/pyarrow instead, producing genuine single `.parquet` files that Power BI/Excel can open directly |
 
 See the full journal for root-cause explanations of each — this is genuinely useful context for anyone else setting up PySpark on Windows, not just a record of what went wrong.
 
