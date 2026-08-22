@@ -1,6 +1,8 @@
 """
 Instamart Data Pipeline - Gold Layer (Business Metrics)
 ==========================================================
+Reads clean tables from data/silver/, joins and aggregates them into
+business-ready metric tables, and writes each as Parquet to data/gold/.
 
 Produces 5 Gold tables, one per business category from the original
 project plan:
@@ -11,7 +13,8 @@ project plan:
   4. gold_delivery_performance  -> Delivery metrics (by store)
   5. gold_location_insights     -> Location/area metrics
 
-
+Run:  python gold_layer.py
+Output: data/gold/*.parquet
 """
 
 from pyspark.sql import SparkSession
@@ -43,8 +46,13 @@ def load(name):
 
 
 def save(df, name):
-    df.write.mode("overwrite").parquet(f"{GOLD_DIR}/{name}.parquet")
-    print(f"  -> saved {name}.parquet ({df.count():,} rows)")
+    # Spark writes Parquet as a folder of "part files" (normal Spark behavior
+    # for distributed writes), but Power BI / Excel / most BI tools expect a
+    # single .parquet FILE. Since Gold tables are small aggregates (not the
+    # full 10M-row datasets), we convert to pandas and write one clean file.
+    pdf = df.toPandas()
+    pdf.to_parquet(f"{GOLD_DIR}/{name}.parquet", index=False)
+    print(f"  -> saved {name}.parquet ({len(pdf):,} rows)")
 
 
 # ----------------------------------------------------------------
