@@ -107,6 +107,7 @@ Real Instamart/Swiggy transactional data is proprietary and not publicly availab
 - **Correlated stock-outs:** Popular products are given lower stock levels, mimicking real demand-driven stock-outs.
 
 **Intentional data messiness** (so the Silver-layer cleaning step has genuine work to do, like real pipelines):
+
 - Small % of null values (`customers.area`, `orders.store_id`)
 - A handful of duplicate customer rows
 - A small % of invalid values (negative `delivery_time_minutes`)
@@ -148,7 +149,7 @@ validate_bronze  →  build_silver  →  build_gold  →  validate_gold
 The final `validate_gold` task runs the data quality test suite (see below) against the freshly-built Gold tables — if any check fails, the task (and the pipeline run) fails, so bad data never silently reaches the dashboard.
 
 **To run it locally:**
-```bash
+```
 cd airflow
 docker compose up -d --build
 ```
@@ -182,7 +183,7 @@ Then open the Airflow UI at `http://localhost:8080` (login: `admin` / `admin`) a
 Exits with a non-zero code on failure, so it works as a pass/fail gate — in Airflow, a failed `validate_gold` task marks the whole DAG run as failed.
 
 **Run manually:**
-```bash
+```
 python test_gold_layer.py
 ```
 
@@ -274,7 +275,7 @@ python test_gold_layer.py
 
 ## 🪟 Local Environment Setup (Windows)
 
-Running PySpark locally on Windows required additional configuration beyond a plain `pip install`, since PySpark depends on Hadoop libraries that were originally built for Linux. The full diagnosis and fix for each issue is documented in [`TROUBLESHOOTING_JOURNAL.md`](./TROUBLESHOOTING_JOURNAL.md) — summary below:
+Running PySpark locally on Windows required additional configuration beyond a plain `pip install`, since PySpark depends on Hadoop libraries that were originally built for Linux. Summary of every issue hit and how it was fixed:
 
 | Issue | Fix |
 |---|---|
@@ -285,8 +286,6 @@ Running PySpark locally on Windows required additional configuration beyond a pl
 | Fatal error writing Parquet files | Also requires `hadoop.dll`, placed in both `HADOOP_HOME\bin` and `C:\Windows\System32` |
 | Windows blocks downloaded `.exe`/`.dll` | Right-click → Properties → check "Unblock" |
 | Power BI can't open Gold-layer Parquet ("path is a folder path" error) | Spark writes Parquet as a folder of part-files, not a single file — Gold-layer tables are small enough to write via pandas/pyarrow instead, producing genuine single `.parquet` files that Power BI/Excel can open directly |
-
-See the full journal for root-cause explanations of each — this is genuinely useful context for anyone else setting up PySpark on Windows, not just a record of what went wrong.
 
 ---
 
