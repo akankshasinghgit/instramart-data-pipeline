@@ -16,7 +16,7 @@ Run:  python check_data.py
 import pandas as pd
 from pathlib import Path
 
-DATA_DIR = Path("data")
+DATA_DIR = Path("data/bronze")
 
 print("Loading CSVs...\n")
 customers = pd.read_csv(DATA_DIR / "customers.csv")

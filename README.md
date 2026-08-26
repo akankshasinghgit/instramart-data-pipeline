@@ -2,7 +2,7 @@
 
 A local, end-to-end data engineering project simulating a quick-commerce (Instamart-style) analytics pipeline — from raw synthetic data to business-ready dashboards.
 
-> **Status:** ✅ Week 6 of 8 Complete — Power BI Dashboard (2 pages, 7 visuals, dark theme)
+> **Status:** ✅ Week 7 of 8 Complete — Airflow Orchestration (Dockerized, 3-task DAG: Bronze → Silver → Gold)
 
 ---
 
@@ -37,7 +37,7 @@ Interactive Dashboard
 Automated, orchestrated pipeline run
 ```
 
-**Why local instead of AWS?** This project intentionally mirrors AWS's architecture (S3 → Glue → Athena → Power BI) using free local equivalents (local folders → PySpark → DuckDB → Power BI Desktop), avoiding cloud billing risk while learning the same distributed-data-processing concepts. See [Design Decisions](#-design-decisions) below for the full reasoning.
+**Why local instead of AWS?** This project intentionally mirrors AWS's architecture (S3 → Glue → Athena → Power BI → MWAA) using free local equivalents (local folders → PySpark → DuckDB → Power BI Desktop → Docker Airflow), avoiding cloud billing risk while learning the same distributed-data-processing concepts. See [Design Decisions](#-design-decisions) below for the full reasoning.
 
 | AWS Service (reference) | Local Equivalent (this project) |
 |---|---|
@@ -51,7 +51,7 @@ Automated, orchestrated pipeline run
 
 ## 🗂️ Data Model
 
-5 relational tables, generated as realistic synthetic data (see [Why Synthetic Data?](#why-synthetic-data)):
+5 relational tables, generated as realistic synthetic data (see [Why Synthetic Data?](#-why-synthetic-data)):
 
 ```
 customers
@@ -126,12 +126,53 @@ The full interactive dashboard is available as `instramart_dashboard.pbix` in th
 
 ---
 
+## ⚙️ Airflow Orchestration Setup (Docker)
+
+The full Bronze → Silver → Gold pipeline is automated with **Apache Airflow**, running entirely in **Docker** on the local machine (no cloud). The setup lives in the `airflow/` folder.
+
+**Stack:**
+- **Postgres 13** — Airflow's metadata database
+- **Apache Airflow 2.9.3** — webserver + scheduler (LocalExecutor, single-machine — sufficient for this project's simple 3-task sequential pipeline, so the heavier CeleryExecutor/Redis setup was intentionally skipped)
+- **Custom Docker image** — extends the base Airflow image with **Java 17** (required by PySpark) and Python dependencies (`pyspark`, `pyarrow`, `duckdb`, upgraded `pandas>=2.2.0`)
+
+**DAG:** `instramart_pipeline` (`airflow/dags/instramart_pipeline.py`) — a 3-task `BashOperator` chain, manually triggered from the Airflow UI:
+
+```
+validate_bronze  →  build_silver  →  build_gold
+(check_data.py)     (silver_layer.py)  (gold_layer.py)
+```
+
+**To run it locally:**
+```bash
+cd airflow
+docker compose up -d --build
+```
+Then open the Airflow UI at `http://localhost:8080` (login: `admin` / `admin`) and trigger the `instramart_pipeline` DAG.
+
+**Issues hit and fixed during setup** (kept here as genuine troubleshooting context, not just a changelog):
+
+| Issue | Fix |
+|---|---|
+| `docker-compose` command not found | Newer Docker Desktop uses `docker compose` (no hyphen, built-in plugin) instead of the old standalone `docker-compose` |
+| Mounted project folder not visible inside containers | Volume mounts only take effect on container **recreation**, not a plain `restart` — required `docker compose up -d --force-recreate` |
+| PySpark not usable in the container | Base Airflow image has no Java — added a custom `Dockerfile` that installs OpenJDK 17 and sets `JAVA_HOME` |
+| `pip install pyspark` timed out mid-build | Large package (~300MB+) hit pip's default network timeout — added `--default-timeout=120 --retries 5` |
+| DAG not appearing in the Airflow UI | The `./dags` volume mount line was accidentally missing from the `airflow-webserver` and `airflow-scheduler` services in `docker-compose.yaml` (only `airflow-init` had it) — added it to all three |
+| `403 FORBIDDEN` / "secret_key" error reading task logs | Each Airflow component generates its own random `secret_key` by default; the webserver couldn't authenticate to fetch logs from the scheduler. Fixed by setting a single fixed `AIRFLOW__WEBSERVER__SECRET_KEY` across all three services |
+| `check_data.py` task failing: `FileNotFoundError: data/customers.csv` | Script's `DATA_DIR` pointed at `data/` instead of `data/bronze/` — a pre-existing bug, unrelated to Docker, that only surfaced once the task actually ran end-to-end |
+| `build_gold` task failing: `PySparkImportError: Pandas >= 2.2.0 required` | The base image's pre-installed pandas was older than what this PySpark version's `.toPandas()` conversion requires — pinned `pandas>=2.2.0` in the custom image |
+
+---
+
 ## 📁 Project Structure
 
 ```
 instramart-data-pipeline/
 ├── generate_data.py       # Synthetic data generator (vectorized pandas/numpy)
 ├── check_data.py          # Data validation & sanity-check script
+├── silver_layer.py        # Bronze → Silver PySpark cleaning job
+├── gold_layer.py           # Silver → Gold PySpark business metrics job
+├── query_layer.py          # DuckDB query layer answering business questions
 ├── data/
 │   ├── bronze/             # Raw CSVs (source of truth, never edited)
 │   ├── silver/              # Cleaned Parquet tables (Week 3)
@@ -140,7 +181,11 @@ instramart-data-pipeline/
 ├── screenshots/            # Dashboard preview images (for this README)
 ├── src/                    # Pipeline scripts (Silver/Gold transformation logic)
 ├── notebook/               # Exploratory analysis notebooks
-├── airflow/                # Airflow DAGs (Week 7)
+├── airflow/                # Airflow orchestration (Week 7)
+│   ├── dags/
+│   │   └── instramart_pipeline.py   # 3-task DAG: validate_bronze → build_silver → build_gold
+│   ├── docker-compose.yaml           # Postgres + Airflow webserver + scheduler
+│   └── Dockerfile                    # Custom image: base Airflow + Java 17 + PySpark deps
 └── README.md
 ```
 
@@ -154,7 +199,7 @@ instramart-data-pipeline/
 - [x] **Week 4 — Gold Layer:** PySpark business transformations built and run — 6 aggregated tables written to `data/gold/`: `daily_orders`, `product_performance`, `category_performance`, `inventory_health`, `delivery_performance`, `location_insights`
 - [x] **Week 5 — Query Layer:** DuckDB script built and run against the full 10.3M-row dataset — answers every business question from Step 2 directly via SQL on the Gold-layer Parquet files (orders, products, inventory, delivery, location)
 - [x] **Week 6 — Dashboard:** Power BI dashboard built (`instramart_dashboard.pbix`) with 2 pages: **Overview** (3 KPI cards, daily orders trend, top products, category revenue) and **Operations** (delivery performance by store, revenue by area, inventory health table). Dark theme applied for a polished, professional look.
-- [ ] **Week 7 — Orchestration:** Airflow DAG automating Bronze → Silver → Gold
+- [x] **Week 7 — Orchestration:** Apache Airflow deployed via Docker Compose (Postgres metadata DB + webserver + scheduler, custom image with Java 17 + PySpark). A 3-task DAG (`validate_bronze` → `build_silver` → `build_gold`) automates the full Bronze → Silver → Gold pipeline with a single click from the Airflow UI. See [Airflow Orchestration Setup](#️-airflow-orchestration-setup-docker) above for the local Docker configuration this required.
 - [ ] **Week 8 — Testing & Polish:** Data quality tests, final documentation, `v1.0` release
 
 ---
@@ -167,7 +212,7 @@ instramart-data-pipeline/
 - **Query engine:** DuckDB
 - **File format:** Parquet (Silver/Gold layers)
 - **Dashboarding:** Power BI Desktop
-- **Orchestration:** Apache Airflow (Docker)
+- **Orchestration:** Apache Airflow (Docker), Postgres (metadata DB)
 - **Version control:** Git / GitHub
 
 ---
@@ -187,6 +232,11 @@ python generate_data.py
 
 # 4. Validate the data
 python check_data.py
+
+# 5. (Optional) Run the full pipeline via Airflow instead of manually
+cd airflow
+docker compose up -d --build
+# then trigger the "instramart_pipeline" DAG at http://localhost:8080
 ```
 
 > **Note:** PySpark requires Java 17 (JDK) installed and `JAVA_HOME` set. See [Adoptium](https://adoptium.net) for the JDK installer.
@@ -216,6 +266,7 @@ See the full journal for root-cause explanations of each — this is genuinely u
 - **Why local instead of cloud (AWS)?** To avoid billing risk while learning, this project uses local, free tools that mirror AWS's architecture 1:1 (see the Architecture section above). All core data engineering concepts — distributed processing, medallion architecture, SQL analytics, orchestration — transfer directly to a cloud deployment.
 - **Why Parquet over CSV for Silver/Gold?** Parquet is columnar, compressed, and much faster to read/write at scale than CSV — the same reason real pipelines avoid CSV beyond the raw ingestion layer.
 - **Why inject messiness into the data?** Real-world data is never perfectly clean. Deliberately including a small, controlled amount of nulls/duplicates/invalid values gives the Silver-layer cleaning step genuine, demonstrable work — rather than a trivial pass-through.
+- **Why LocalExecutor instead of CeleryExecutor for Airflow?** This pipeline is a simple 3-task sequential chain running on a single machine — LocalExecutor handles that fine without the added complexity of Redis/Celery workers, which only pays off for distributed, multi-worker task execution.
 
 ---
 
