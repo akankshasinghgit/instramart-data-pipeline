@@ -34,5 +34,9 @@ with DAG(
         task_id="build_gold",
         bash_command=f"cd {PROJECT_DIR} && python gold_layer.py",
     )
+    validate_gold = BashOperator(
+        task_id="validate_gold",
+        bash_command=f"cd {PROJECT_DIR} && python test_gold_layer.py",
+    )
 
-    validate_bronze >> build_silver >> build_gold
+    validate_bronze >> build_silver >> build_gold >> validate_gold
